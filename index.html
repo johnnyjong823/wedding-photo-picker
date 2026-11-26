@@ -1,0 +1,1315 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#faf7f2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<title>婚紗照選擇器</title>
+<meta name="description" content="左滑右滑挑婚紗照：右滑精修、左滑不要、上滑其他用途（小卡、相本、禮物）">
+<style>
+:root{
+  --bg:#faf7f2; --card:#ffffff; --ink:#2b2420; --muted:#7a6e66; --line:#ebe3d9;
+  --accent:#b5485d; --accent-soft:#f6e4e7; --gold:#b08a4a; --gold-soft:#f5ecdc;
+  --ok:#3f8a5a; --ok-soft:#e3f1e7; --bad:#9a928b; --bad-soft:#efebe7; --warn:#b7791f; --warn-soft:#fbf0dc;
+  --stage:#1d1916; --shadow:0 10px 30px rgba(43,36,32,.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1c1917; --card:#26211e; --ink:#f1ebe4; --muted:#a8998d; --line:#3a332e;
+    --accent:#e07a8e; --accent-soft:#3b2529; --gold:#d4b071; --gold-soft:#352c1e;
+    --ok:#6cc08b; --ok-soft:#203126; --bad:#8d847c; --bad-soft:#2e2926; --warn:#e3a94f; --warn-soft:#3a2f1c;
+    --stage:#0f0d0c; --shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1c1917; --card:#26211e; --ink:#f1ebe4; --muted:#a8998d; --line:#3a332e;
+  --accent:#e07a8e; --accent-soft:#3b2529; --gold:#d4b071; --gold-soft:#352c1e;
+  --ok:#6cc08b; --ok-soft:#203126; --bad:#8d847c; --bad-soft:#2e2926; --warn:#e3a94f; --warn-soft:#3a2f1c;
+  --stage:#0f0d0c; --shadow:0 10px 30px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);overflow:hidden;
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;line-height:1.5}
+button{font:inherit;color:inherit}
+[hidden]{display:none!important}
+
+#app{height:100vh;height:100dvh;max-width:560px;margin:0 auto;display:grid;grid-template-rows:auto 1fr auto}
+.hdr{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 16px 6px}
+.hdr h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.04em}
+.hdr .me{font-size:12px;color:var(--accent);background:var(--accent-soft);border-radius:99px;padding:1px 9px}
+.hdr .sync{margin-left:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;background:none;border:0;padding:4px 0;cursor:pointer}
+.hdr .sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.hdr .sync.busy::before{background:var(--warn)} .hdr .sync.off::before,.hdr .sync.err::before{background:#c0392b}
+
+#view{overflow-x:hidden;overflow-y:auto;position:relative;min-height:0;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;scrollbar-width:none}
+#view::-webkit-scrollbar,.v-scroll::-webkit-scrollbar,.adm-body::-webkit-scrollbar{display:none}
+html,body{overscroll-behavior:none}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--card);
+  padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{border:0;background:none;padding:7px 0 6px;display:flex;flex-direction:column;align-items:center;gap:1px;
+  font-size:19px;color:var(--muted);position:relative;cursor:pointer}
+.tabs button span{font-size:11px}
+.tabs button.on{color:var(--accent)}
+.tabs .badge{position:absolute;top:3px;left:calc(50% + 6px);background:var(--accent);color:#fff;font-style:normal;
+  font-size:10px;min-width:17px;height:17px;border-radius:9px;padding:0 4px;line-height:17px}
+.tabs .badge:empty{display:none}
+body.gated .tabs{display:none}
+
+/* ---------- 滑卡 ---------- */
+.dv{height:100%;display:flex;flex-direction:column;padding:2px 12px 0;overflow:hidden;overflow:clip} /* 卡片飛出去不會撐出卷軸 */
+.dv-head{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);padding:2px 4px 8px;flex-wrap:wrap}
+.dv-head b{color:var(--ink)}
+.dv-head .pill{background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:1px 9px;font-weight:600}
+.dv-head .pill.gold{background:var(--gold-soft);color:var(--gold)}
+.bar{flex:1 1 100%;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.big-count{flex:1 1 100%;text-align:center;font-size:15px;color:var(--ink)}
+.big-count b{font-size:26px;color:var(--accent)}
+
+.deck{flex:1;position:relative;min-height:0}
+.card{position:absolute;inset:0;border-radius:18px;overflow:hidden;background:var(--stage);box-shadow:var(--shadow);
+  display:flex;flex-direction:column;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  transition:transform .25s ease,opacity .25s;cursor:grab;will-change:transform}
+.card:active{cursor:grabbing}
+.card.next{transform:translateY(10px) scale(.95);opacity:.85;pointer-events:none}
+.card .bg{position:absolute;inset:-30px;width:calc(100% + 60px);height:calc(100% + 60px);object-fit:cover;filter:blur(26px) brightness(.55);opacity:.9}
+.card .ph{position:relative;flex:1;min-height:0;z-index:1}
+.card .main{width:100%;height:100%;object-fit:contain;display:block;-webkit-user-drag:none;pointer-events:none}
+.card img{-webkit-user-drag:none}
+.stamp{position:absolute;top:26px;padding:4px 14px;border:4px solid;border-radius:10px;font-size:28px;font-weight:800;
+  letter-spacing:.08em;opacity:0;pointer-events:none;background:rgba(0,0,0,.25);z-index:3}
+.s-r{left:20px;color:#ff8fa3;border-color:#ff8fa3;transform:rotate(-14deg) scale(var(--k,1))}
+.s-l{right:20px;color:#e6e0da;border-color:#e6e0da;transform:rotate(14deg) scale(var(--k,1))}
+.s-u{left:50%;top:auto;bottom:38%;color:#f3d08f;border-color:#f3d08f;transform:translateX(-50%) scale(var(--k,1))}
+.info{position:relative;padding:6px 14px 10px;color:#fff;font-size:12px;background:linear-gradient(transparent,rgba(0,0,0,.45));z-index:2}
+.info .grp{display:inline-block;background:rgba(255,255,255,.2);border-radius:99px;padding:1px 9px;margin-bottom:3px;font-weight:600}
+.info .nm{opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.info .who{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.info .who span{background:rgba(0,0,0,.45);border-radius:99px;padding:1px 9px}
+.info .who .y{background:#c2546b}
+.strip{position:relative;z-index:2;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:8px 10px 0}
+.th{position:relative;flex:none;width:52px;height:69px;border:2px solid transparent;border-radius:8px;padding:0;overflow:hidden;background:#000;cursor:pointer;opacity:.7}
+.th img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.th.sel{border-color:#fff;opacity:1;box-shadow:0 0 0 2px var(--accent)}
+.th .mk{position:absolute;left:2px;bottom:2px;right:2px;display:flex;gap:2px;flex-wrap:wrap}
+.th .mk i{font-style:normal;font-size:9px;background:#c2546b;color:#fff;border-radius:4px;padding:0 3px;line-height:14px}
+.bothbtn{display:inline-block;margin-top:4px;background:#fff;color:#8a2f42;border:0;border-radius:99px;padding:3px 12px;font-weight:700;font-size:12px}
+
+.acts{display:flex;justify-content:center;align-items:center;gap:14px;padding:12px 0 12px}
+.ab{border:0;border-radius:50%;background:var(--card);box-shadow:0 3px 12px rgba(0,0,0,.14);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;cursor:pointer;line-height:1;transition:transform .1s}
+.ab:active{transform:scale(.9)}
+.ab small{font-size:10px;margin-top:3px;color:var(--muted)}
+.ab.big{width:66px;height:66px;font-size:28px}
+.ab.mid{width:56px;height:56px;font-size:22px}
+.ab.sm{width:42px;height:42px;font-size:17px;color:var(--muted)}
+.ab.no{color:var(--muted)} .ab.yes{color:var(--accent)} .ab.up{color:var(--gold)}
+.ab:disabled{opacity:.35}
+
+/* ---------- 一般頁面 ---------- */
+.pg{padding:8px 16px 32px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+.panel h2{font-size:16px;margin:0 0 8px}
+.panel p{margin:6px 0;color:var(--muted);font-size:14px}
+.hero{text-align:center;padding:28px 16px}
+.hero .emo{font-size:52px;line-height:1.2}
+.hero h2{font-size:22px;margin:8px 0 6px}
+.hero p{color:var(--muted);margin:4px 0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--card);
+  border-radius:12px;padding:10px 16px;cursor:pointer;font-size:15px;text-decoration:none;color:var(--ink)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.btn.wide{width:100%;margin-top:8px}
+.btn:disabled{opacity:.5}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:12px;font-size:16px;cursor:pointer}
+.seg button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:700}
+input[type=text],input[type=password]{font:inherit;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink)}
+.prog{margin:10px 0}
+.prog .lbl{display:flex;justify-content:space-between;font-size:14px}
+.prog .bar{height:8px;border-radius:4px;margin-top:4px}
+.prog .bar i{background:var(--accent)}
+.prog.done .bar i{background:var(--ok)}
+.note{font-size:13px;color:var(--muted)}
+.warnbox{background:var(--warn-soft);color:var(--warn);border-radius:12px;padding:10px 12px;font-size:14px;margin:8px 0}
+
+/* 結果 */
+.rtabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none}
+.rtabs::-webkit-scrollbar{display:none}
+.rtabs button{flex:none;border:1px solid var(--line);background:var(--card);border-radius:99px;padding:5px 12px;font-size:14px;cursor:pointer;white-space:nowrap}
+.rtabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.rtabs button.over{color:#c0392b}
+.rtabs button.on.over{background:#c0392b;border-color:#c0392b;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.gi{position:relative;border:0;padding:0;aspect-ratio:3/4;background:var(--line);border-radius:6px;overflow:hidden;cursor:pointer}
+.gi img{width:100%;height:100%;object-fit:cover;display:block}
+.gi .mk{position:absolute;left:3px;right:3px;bottom:3px;display:flex;gap:3px;flex-wrap:wrap}
+.gi .mk i{font-style:normal;font-size:10px;line-height:16px;padding:0 5px;border-radius:5px;background:rgba(0,0,0,.6);color:#fff}
+.gi .mk i.h{background:#c2546b}
+.gi.dim img{opacity:.45}
+.empty{text-align:center;color:var(--muted);padding:40px 0}
+
+/* 用途面板 */
+.sheet{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.35)}
+.sh-in{width:100%;max-width:560px;background:var(--card);border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.sh-in h3{margin:0 0 4px;font-size:17px}
+.sh-in .sub{color:var(--muted);font-size:12px;margin-bottom:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:var(--bg);border-radius:99px;padding:8px 16px;font-size:16px;cursor:pointer}
+.chip.on{border-color:var(--gold);background:var(--gold-soft);color:var(--gold);font-weight:700}
+.chip.add{border-style:dashed;color:var(--muted)}
+.fixrow{display:flex;align-items:center;gap:10px;margin:16px 0 4px;font-size:16px;padding:10px 12px;border-radius:12px;background:var(--accent-soft);color:var(--accent);cursor:pointer}
+.fixrow input{width:20px;height:20px;accent-color:var(--accent)}
+.sh-btns{display:flex;gap:10px;margin-top:14px}
+.sh-btns .btn{flex:1}
+
+/* 看大圖 */
+.viewer{position:fixed;inset:0;z-index:40;background:#000;color:#fff;display:flex;flex-direction:column}
+.v-top{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;font-size:13px}
+.v-top span{flex:1;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v-top button,.v-nav{background:rgba(255,255,255,.14);border:0;color:#fff;border-radius:99px;min-width:38px;height:38px;font-size:18px;cursor:pointer}
+.v-scroll{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;min-height:0;scrollbar-width:none}
+.v-scroll img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.v-scroll.zoom{display:block}
+.v-scroll.zoom img{max-width:none;max-height:none;width:260%}
+.v-bar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:10px 12px calc(12px + env(safe-area-inset-bottom))}
+.v-bar .chip{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);color:#fff;font-size:15px;padding:6px 14px}
+.v-bar .chip.on{background:var(--gold);border-color:var(--gold);color:#1d1916}
+.v-bar .chip.fx.on{background:#c2546b;border-color:#c2546b;color:#fff}
+.v-hint{text-align:center;font-size:11px;opacity:.5;padding-bottom:4px}
+
+/* 分組管理 */
+.admin{position:fixed;inset:0;z-index:30;background:var(--bg);display:flex;flex-direction:column;max-width:960px;margin:0 auto}
+.adm-top{display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 14px 8px;border-bottom:1px solid var(--line)}
+.adm-top b{font-size:16px}
+.adm-body{flex:1;overflow:auto;padding:12px 14px 90px}
+.adm-foot{position:absolute;left:0;right:0;bottom:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line)}
+.sl{display:grid;grid-template-columns:auto 1fr 52px;gap:8px;align-items:center;font-size:14px;margin:6px 0}
+.sl input{width:100%;accent-color:var(--accent)}
+.ag{display:inline-flex;flex-wrap:wrap;gap:4px;padding:5px;border-radius:10px;margin:0 2px 8px 0;border:1px dashed transparent;position:relative;vertical-align:top;max-width:100%}
+.ag.multi{background:var(--accent-soft);border-color:var(--accent)}
+.ag .n{position:absolute;right:6px;top:-9px;font-size:11px;background:var(--accent);color:#fff;border-radius:99px;padding:0 7px}
+.at{position:relative;width:64px;border:2px solid transparent;border-radius:6px;padding:0;background:var(--line);cursor:pointer;overflow:hidden}
+.at img{width:100%;height:80px;object-fit:cover;display:block}
+.at small{position:absolute;left:0;right:0;bottom:0;font-size:10px;background:rgba(0,0,0,.55);color:#fff;text-align:center}
+.at.ovr{border-color:var(--gold)}
+.fdh{font-weight:700;margin:14px 0 6px;color:var(--gold)}
+
+/* 對話框、提示 */
+.modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:24px}
+.modal .box{background:var(--card);border-radius:18px;padding:22px 20px 16px;max-width:360px;width:100%;text-align:center;animation:pop .2s ease-out}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
+.modal .box h3{margin:0 0 8px;font-size:19px}
+.modal .box p{margin:0 0 14px;color:var(--muted);white-space:pre-line}
+.modal .box .btn{width:100%;margin-top:8px}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:70;background:rgba(30,26,23,.92);color:#fff;
+  padding:8px 16px;border-radius:99px;font-size:14px;pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap}
+.toast.show{opacity:1}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-3px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (min-width:700px){ .grid{grid-template-columns:repeat(4,1fr)} }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="hdr">
+    <h1>婚紗照選擇器</h1><span class="me" id="meTag" hidden></span>
+    <button class="sync" id="syncTag" hidden></button>
+  </header>
+  <main id="view"></main>
+  <nav class="tabs" id="tabs">
+    <button data-tab="swipe">📷<span>滑照片</span></button>
+    <button data-tab="together">💞<span>一起決定</span><i class="badge" id="tgBadge"></i></button>
+    <button data-tab="results">⭐<span>結果</span></button>
+    <button data-tab="settings">⚙<span>設定</span></button>
+  </nav>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sh-in">
+    <h3>其他用途</h3>
+    <div class="sub" id="shSub"></div>
+    <div class="chips" id="shChips"></div>
+    <label class="fixrow"><input type="checkbox" id="shFix"> 這張也要精修 ♥</label>
+    <div class="sh-btns"><button class="btn" id="shCancel">取消</button><button class="btn pri" id="shOk">確定</button></div>
+  </div>
+</div>
+
+<div class="viewer" id="viewer" hidden>
+  <div class="v-top"><button class="v-nav" id="vPrev">‹</button><span id="vName"></span><button class="v-nav" id="vNext">›</button><button id="vClose">✕</button></div>
+  <div class="v-scroll" id="vScroll"><img id="vImg" alt=""></div>
+  <div class="v-hint">點兩下放大／縮小</div>
+  <div class="v-bar" id="vBar"></div>
+</div>
+
+<div class="admin" id="admin" hidden>
+  <div class="adm-top"><button class="btn" id="admBack">‹ 返回</button><b>照片分組</b></div>
+  <div class="adm-body" id="admBody"></div>
+  <div class="adm-foot" id="admFoot" hidden></div>
+</div>
+
+<div class="modal" id="modal" hidden><div class="box" id="modalBox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+// ★ 部署好的 Apps Script 網頁應用程式網址（https://script.google.com/macros/s/.../exec），見 SETUP.md
+var SYNC_URL = 'https://script.google.com/macros/s/AKfycbwfAzOQkvD0KGV1q4oaaD3NBcGoHgQMCSwzUzt4yPZ9dOrxq3SrIX6j7dMuOtZLTmsHCQ/exec';
+var LIMIT = 60;                         // 精修張數上限
+var TAG_PRESET = ['小卡', '相本', '禮物'];
+// ★ 滑動手感（數字改這裡就好）
+var UI = {
+  swipeDist: 0.28,  // 左右拖超過卡片寬度的幾成就算數（0.28 = 28%）
+  upDist: 0.2,      // 上滑拖超過卡片高度的幾成就算數
+  flick: 0.45,      // 甩的速度（每毫秒幾 px）超過，不用拖很遠也算數
+  tilt: 12,         // 拖到底時卡片最多歪幾度
+  flyMs: 300,       // 卡片飛出去的時間（毫秒）
+  backMs: 450,      // 沒滑成功彈回來的時間（毫秒）
+  vibrate: true     // 拖過門檻時手機輕震一下（Android 才有，iPhone 網頁不支援）
+};
+var WHO = { h: '老公', w: '老婆' };
+var DEMO = /[?&]demo\b/.test(location.search);
+if (DEMO) LIMIT = 10;                   // 示範只有 40 張，上限改 10 張才看得到淘汰流程
+
+/* ---------------- 儲存 ---------------- */
+var NS = DEMO ? 'wpk-demo.' : 'wpk.';
+function load(k, d) { try { var v = JSON.parse(localStorage.getItem(NS + k)); return v == null ? d : v; } catch (e) { return d; } }
+function store(k, v) { try { localStorage.setItem(NS + k, JSON.stringify(v)); } catch (e) {} }
+var Y = Object.assign({ key: '', rev: 0, who: '' }, load('sync', {}));   // 同步設定
+var KV = load('kv', {});        // 跟雲端同步的挑選紀錄
+var PEND = load('pend', {});    // 還沒傳上去的變更
+var MAN = load('man', null);    // 照片清單 {mrev, photos:[{id,name,t,g,fd}]}
+var L = Object.assign({ tab: 'swipe', rtab: 'fix', elim: null }, load('local', {}));
+function saveAll() { store('sync', Y); store('kv', KV); store('pend', PEND); store('local', L); }
+
+(function () { // 連結帶進來的 ?key=…&me=h
+  var q = new URLSearchParams(location.search);
+  var k = q.get('key');
+  if (k && k !== Y.key) { Y.key = k; Y.rev = 0; KV = {}; }
+  var me = q.get('me');
+  if (me === 'h' || me === 'w') Y.who = me;
+  saveAll();
+})();
+// 網址一直帶著 key/me：iPhone「加到主畫面」的 App 跟 Safari 儲存空間分開，靠網址帶進去
+function fixUrl() {
+  if (DEMO) return;
+  var q = new URLSearchParams();
+  if (Y.key) q.set('key', Y.key);
+  if (Y.who) q.set('me', Y.who);
+  try { history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '')); } catch (e) {}
+}
+
+/* ---------------- 小工具 ---------------- */
+function $(s, el) { return (el || document).querySelector(s); }
+function $$(s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+function sameSet(a, b) { a = a || []; b = b || []; return a.length === b.length && a.every(function (x) { return b.indexOf(x) >= 0; }); }
+function uniq(a) { return a.filter(function (x, i) { return a.indexOf(x) === i; }); }
+var toastT;
+function toast(msg) { var t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('show'); }, 1800); }
+function modal(title, text, buttons) { // buttons: [{label, pri, fn}]
+  var box = $('#modalBox');
+  box.innerHTML = '<h3>' + esc(title) + '</h3><p>' + esc(text) + '</p>' +
+    buttons.map(function (b, i) { return '<button class="btn' + (b.pri ? ' pri' : '') + '" data-i="' + i + '">' + esc(b.label) + '</button>'; }).join('');
+  $('#modal').hidden = false;
+  $$('button', box).forEach(function (el) {
+    el.onclick = function () { $('#modal').hidden = true; var b = buttons[+el.dataset.i]; if (b.fn) b.fn(); };
+  });
+}
+
+/* ---------------- 照片網址 ---------------- */
+var demoCache = {};
+function src(p, s) {
+  if (p.demo) return demoImg(p);
+  return 'https://lh3.googleusercontent.com/d/' + p.id + '=s' + s;
+}
+function imgTag(p, s, cls) {
+  return '<img class="' + (cls || '') + '" data-id="' + esc(p.id) + '" data-s="' + s + '" src="' + esc(src(p, s)) + '" alt="" draggable="false" decoding="async"' + (cls === 'lz' ? ' loading="lazy"' : '') + '>';
+}
+// lh3 打不開時改用雲端硬碟縮圖網址再試一次
+document.addEventListener('error', function (e) {
+  var img = e.target;
+  if (!img || img.tagName !== 'IMG' || !img.dataset.id || img.dataset.fb || DEMO) return;
+  img.dataset.fb = '1';
+  img.src = 'https://drive.google.com/thumbnail?id=' + img.dataset.id + '&sz=s' + (img.dataset.s || 1600);
+}, true);
+var preloaded = {};
+function preload(p, s) { var u = src(p, s); if (preloaded[u]) return; preloaded[u] = 1; var i = new Image(); i.decoding = 'async'; i.src = u; }
+
+/* ---------------- 示範模式（?demo）---------------- */
+function demoImg(p) {
+  if (demoCache[p.id]) return demoCache[p.id];
+  var w = p.land ? 1500 : 1200, h = p.land ? 1000 : 1600, hue = (p.g * 47) % 360, m = Math.min(w, h);
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' +
+    '<defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(' + hue + ',45%,74%)"/><stop offset="1" stop-color="hsl(' + ((hue + 40) % 360) + ',38%,36%)"/></linearGradient></defs>' +
+    '<rect width="100%" height="100%" fill="url(#a)"/>' +
+    '<circle cx="' + (w / 2) + '" cy="' + (h * (p.crop > .2 ? .42 : .3)) + '" r="' + (m * p.crop) + '" fill="rgba(255,255,255,.6)"/>' +
+    '<rect x="' + (w / 2 - m * p.crop * .9) + '" y="' + (h * .5) + '" width="' + (m * p.crop * 1.8) + '" height="' + (h * .5) + '" rx="' + (m * .05) + '" fill="rgba(255,255,255,.4)"/>' +
+    '<text x="50%" y="' + (h * .93) + '" font-size="' + (m * .065) + '" text-anchor="middle" fill="#fff" font-family="sans-serif">' + esc(p.label) + '</text></svg>';
+  return (demoCache[p.id] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg));
+}
+function demoPhotos() {
+  var out = [], kinds = ['全身', '半身', '橫拍', '特寫'], sizes = [1, 3, 1, 2, 1, 1, 4, 1, 2, 1, 3, 1];
+  var t = Date.UTC(2026, 9, 10, 10, 0, 0), n = 1;
+  for (var g = 1; g <= 24; g++) {
+    var size = sizes[g % 12];
+    t += 60000 * (2 + g % 3);
+    for (var k = 0; k < size; k++) {
+      var id = 'demo' + String(n).padStart(4, '0');
+      out.push({ id: id, name: 'DSC_' + (1000 + n) + '.jpg', t: t + k * 4000, g: g, fd: g <= 12 ? '外拍' : '棚拍', demo: 1,
+        land: size > 1 && k % 4 === 2, crop: [0.14, 0.24, 0.14, 0.32][k % 4],
+        label: '#' + n + ' 第' + g + '組' + (size > 1 ? ' ' + kinds[k % 4] : '') });
+      n++;
+    }
+  }
+  return out;
+}
+if (DEMO && !MAN) MAN = { mrev: 1, photos: demoPhotos() };
+if (DEMO && MAN) MAN.photos.forEach(function (p, i) { if (!p.demo) { var d = demoPhotos().find(function (x) { return x.id === p.id; }); if (d) Object.assign(p, d, { g: p.g }); } });
+if (DEMO && !Y.key) Y.key = 'demo';
+
+/* ---------------- 照片 → 卡片（相似照片同一張卡） ---------------- */
+var PH = {}, CARDS = [], CARD_OF = {}, ORDER = {};
+function buildCards() {
+  PH = {}; CARDS = []; CARD_OF = {}; ORDER = {};
+  var cur = null;
+  ((MAN && MAN.photos) || []).forEach(function (p, i) {
+    PH[p.id] = p; ORDER[p.id] = i;
+    if (!cur || cur.g !== p.g) { cur = { id: p.id, g: p.g, photos: [] }; CARDS.push(cur); }
+    cur.photos.push(p); CARD_OF[p.id] = cur;
+  });
+}
+buildCards();
+
+/* ---------------- 挑選紀錄 ----------------
+   v.h.<卡片id> / v.w.<卡片id>：各自的選擇；f.<卡片id>：一起決定後的結果
+   值 { f:[要精修的照片id], t:{ 照片id:['小卡',…] } }                        */
+function me() { return Y.who; }
+function other() { return Y.who === 'h' ? 'w' : 'h'; }
+function vk(who, cid) { return 'v.' + who + '.' + cid; }
+function clean(v, c) { // 只留下這張卡現在有的照片
+  if (!v) return null;
+  var ids = {}; c.photos.forEach(function (p) { ids[p.id] = 1; });
+  var t = {}; Object.keys(v.t || {}).forEach(function (id) { if (ids[id]) t[id] = v.t[id]; });
+  return { f: uniq((v.f || []).filter(function (id) { return ids[id]; })), t: t };
+}
+function vote(who, c) { return clean(KV[vk(who, c.id)], c); }
+function setKV(k, v) {
+  if (v == null) delete KV[k]; else KV[k] = v;
+  PEND[k] = v == null ? null : v;
+  saveAll(); schedulePush();
+}
+function mergeT() {
+  var o = {};
+  Array.prototype.forEach.call(arguments, function (t) {
+    if (!t) return;
+    Object.keys(t).forEach(function (id) { (t[id] || []).forEach(function (tag) { o[id] = o[id] || []; if (o[id].indexOf(tag) < 0) o[id].push(tag); }); });
+  });
+  return o;
+}
+function finalOf(c) {
+  var ex = KV['f.' + c.id]; if (ex) return clean(ex, c);
+  var a = vote('h', c), b = vote('w', c);
+  if (!a || !b || !sameSet(a.f, b.f)) return null;
+  return { f: (a.f || []).slice(), t: mergeT(a.t, b.t) };
+}
+function isConflict(c) {
+  if (KV['f.' + c.id]) return false;
+  var a = vote('h', c), b = vote('w', c);
+  return !!(a && b && !sameSet(a.f, b.f));
+}
+function countDone(who) { var n = 0; CARDS.forEach(function (c) { if (vote(who, c)) n++; }); return n; }
+function stats() {
+  var N = CARDS.length, nh = countDone('h'), nw = countDone('w');
+  var both = N > 0 && nh === N && nw === N;
+  var conflicts = both ? CARDS.filter(isConflict) : [];
+  var fix = 0;
+  if (both) CARDS.forEach(function (c) { var f = finalOf(c); if (f) fix += (f.f || []).length; });
+  return { N: N, nh: nh, nw: nw, both: both, conflicts: conflicts, fix: fix };
+}
+function myFixCount() { var n = 0, u = 0; CARDS.forEach(function (c) { var v = vote(me(), c); if (v) { n += (v.f || []).length; if (v.t && Object.keys(v.t).length) u++; } }); return { fix: n, up: u }; }
+function allTags() {
+  var a = TAG_PRESET.concat(KV['cfg.tags'] || []);
+  Object.keys(KV).forEach(function (k) { var v = KV[k]; if (/^[vf]\./.test(k) && v && v.t) Object.keys(v.t).forEach(function (id) { a = a.concat(v.t[id] || []); }); });
+  return uniq(a);
+}
+
+/* ---------------- 同步 ---------------- */
+var badKey = false, pushT = null, pushing = false, pulling = false, manLoading = false, syncState = 'ok';
+function syncOn() { return !DEMO && !!SYNC_URL && !!Y.key && !badKey; }
+function setSync(s) {
+  syncState = s;
+  var el = $('#syncTag');
+  el.hidden = DEMO || !SYNC_URL || !Y.key;
+  el.className = 'sync ' + s;
+  el.textContent = { ok: '已同步', busy: '同步中…', off: '離線，稍後補傳', err: '同步失敗', bad: '密碼錯誤' }[s] || '';
+  if (s === 'ok' && Object.keys(PEND).length) el.textContent = '待上傳 ' + Object.keys(PEND).length;
+}
+function schedulePush(ms) { if (!syncOn()) return; clearTimeout(pushT); pushT = setTimeout(push, ms || 1200); }
+function push(leaving) {
+  if (!syncOn() || pushing) return;
+  var keys = Object.keys(PEND).slice(0, 200); if (!keys.length) return;
+  pushing = true; setSync('busy');
+  var sent = {}; keys.forEach(function (k) { sent[k] = PEND[k]; });
+  var body = JSON.stringify({ key: Y.key, changes: sent });
+  var retry = 1200;
+  fetch(SYNC_URL, { method: 'POST', keepalive: !!leaving && body.length < 60000, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { if (d.error === 'bad key') { badKey = true; setSync('bad'); render(); } else { setSync('err'); retry = 10000; } return; }
+      keys.forEach(function (k) { if (same(PEND[k], sent[k])) delete PEND[k]; }); // 一批最多 200 筆，伺服器全收
+      saveAll(); setSync('ok');
+    })
+    .catch(function () { setSync('off'); retry = 10000; })
+    .then(function () { pushing = false; if (Object.keys(PEND).length) schedulePush(retry); });
+}
+function pull() {
+  if (!syncOn() || pulling) return;
+  pulling = true;
+  var since = Y.rev || 0;
+  fetch(SYNC_URL + '?key=' + encodeURIComponent(Y.key) + '&since=' + since)
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { if (d.error === 'bad key') { badKey = true; setSync('bad'); render(); } return; }
+      var changed = false;
+      if (since === 0 || d.reset) { KV = {}; changed = true; Object.keys(PEND).forEach(function (k) { if (PEND[k] != null) KV[k] = PEND[k]; }); }
+      d.changes.forEach(function (c) {
+        if (c.k in PEND) return; // 自己還沒傳上去的變更優先
+        if (c.v == null) { if (c.k in KV) { delete KV[c.k]; changed = true; } }
+        else if (!same(KV[c.k], c.v)) { KV[c.k] = c.v; changed = true; }
+      });
+      Y.rev = d.rev; saveAll();
+      if (!MAN || MAN.mrev !== d.mrev) loadManifest();
+      if (changed) { markActive(); render(); }
+      if (syncState !== 'busy') setSync('ok');
+    })
+    .catch(function () { setSync('off'); })
+    .then(function () { pulling = false; });
+}
+function loadManifest(cb) {
+  if (!syncOn() || manLoading) return;
+  manLoading = true;
+  fetch(SYNC_URL + '?key=' + encodeURIComponent(Y.key) + '&manifest=1')
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) return;
+      MAN = { mrev: d.mrev, photos: d.photos || [] };
+      store('man', MAN); buildCards(); render();
+      if (cb) cb();
+    })
+    .catch(function () {})
+    .then(function () { manLoading = false; });
+}
+var lastActive = Date.now();
+function markActive() { lastActive = Date.now(); }
+(function loop() { // 有在動：8 秒問一次；閒置 2 分鐘後 30 秒一次（Apps Script 每天有配額）
+  if (!document.hidden) pull();
+  setTimeout(loop, Date.now() - lastActive < 120000 ? 8000 : 30000);
+})();
+document.addEventListener('pointerdown', markActive, true);
+document.addEventListener('keydown', markActive, true);
+document.addEventListener('visibilitychange', function () { if (document.hidden) push(true); else { markActive(); pull(); } });
+
+/* ---------------- 畫面 ---------------- */
+var dragging = false, sheetOpen = false, needRender = false, UNDO = [], CUR = null;
+function render() {
+  if (dragging || sheetOpen) { needRender = true; return; }
+  needRender = false;
+  var v = $('#view');
+  $('#meTag').hidden = !Y.who; $('#meTag').textContent = DEMO ? '示範・' + (WHO[Y.who] || '') : '我是' + (WHO[Y.who] || '');
+  setSync(syncState);
+  var gate = gateHtml();
+  document.body.classList.toggle('gated', !!gate);
+  if (gate) { v.dataset.tab = ''; v.innerHTML = gate; bindGate(); return; }
+  var s = stats();
+  $$('#tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === L.tab); });
+  var badge = s.both ? (s.conflicts.length || (s.fix > LIMIT ? '!' : '')) : '';
+  $('#tgBadge').textContent = badge;
+  var sameTab = v.dataset.tab === L.tab, sc = v.scrollTop;
+  v.dataset.tab = L.tab;
+  if (L.tab === 'swipe') viewSwipe(v, s);
+  else if (L.tab === 'together') viewTogether(v, s);
+  else if (L.tab === 'results') viewResults(v, s);
+  else viewSettings(v, s);
+  if (sameTab) v.scrollTop = sc; else v.scrollTop = 0;
+}
+$$('#tabs button').forEach(function (b) { b.onclick = function () { L.tab = b.dataset.tab; saveAll(); render(); }; });
+
+/* 第一次使用：輸入同步密碼 → 選身分 */
+function gateHtml() {
+  if (!DEMO && !SYNC_URL) return '<div class="pg"><div class="hero"><div class="emo">🛠️</div><h2>還沒接上雲端</h2>' +
+    '<p>照著 SETUP.md 部署 Apps Script，把網址填進 index.html 的 <b>SYNC_URL</b>。</p>' +
+    '<p style="margin-top:14px"><a class="btn pri" href="?demo">先用示範照片試玩</a></p></div></div>';
+  if (!DEMO && (!Y.key || badKey)) return '<div class="pg"><div class="hero"><div class="emo">🔒</div><h2>輸入同步密碼</h2>' +
+    '<p>' + (badKey ? '密碼不對，請重新輸入。' : '密碼在試算表選單「📷 婚紗照選擇器 → 顯示同步密碼」。') + '</p></div>' +
+    '<div class="panel"><input type="password" id="gKey" placeholder="同步密碼" autocomplete="off"><button class="btn pri wide" id="gKeyOk">確定</button></div></div>';
+  if (!Y.who) return '<div class="pg"><div class="hero"><div class="emo">💍</div><h2>你是哪一位？</h2>' +
+    '<p>兩個人各自用自己的手機滑，最後再合併。<br>滑的時候看不到對方的選擇，才不會被影響 😉</p></div>' +
+    '<div class="seg"><button data-who="h">🤵 老公</button><button data-who="w">👰 老婆</button></div></div>';
+  return '';
+}
+function bindGate() {
+  var ok = $('#gKeyOk');
+  if (ok) {
+    var go = function () { var k = $('#gKey').value.trim(); if (!k) return; Y.key = k; Y.rev = 0; badKey = false; KV = {}; saveAll(); fixUrl(); render(); pull(); loadManifest(); };
+    ok.onclick = go; $('#gKey').onkeydown = function (e) { if (e.key === 'Enter') go(); };
+  }
+  $$('[data-who]').forEach(function (b) { b.onclick = function () { Y.who = b.dataset.who; saveAll(); fixUrl(); render(); }; });
+}
+
+/* ---------- 卡片堆 ---------- */
+function deckSkeleton(v, mode) {
+  var dv = $('.dv', v);
+  if (dv && dv.dataset.mode === mode) return dv;
+  var elim = mode === 'elim';
+  v.innerHTML = '<div class="dv" data-mode="' + mode + '"><div class="dv-head"></div><div class="deck"></div><div class="acts">' +
+    '<button class="ab sm" data-act="undo" title="復原 (Z)">↶</button>' +
+    '<button class="ab big no" data-act="l">✕<small>' + (elim ? '刪掉' : '不要') + '</small></button>' +
+    (elim ? '' : '<button class="ab mid up" data-act="u">↑<small>其他用途</small></button>') +
+    '<button class="ab big yes" data-act="r">♥<small>' + (elim ? '留下' : '精修') + '</small></button>' +
+    '<button class="ab sm" data-act="zoom" title="看大圖 (空白鍵)">🔍</button></div></div>';
+  return $('.dv', v);
+}
+function renderDeck(dv, items, decide) {
+  var host = $('.deck', dv);
+  CUR = { host: host, decide: decide };
+  var want = items.slice(0, 2), keep = {};
+  want.forEach(function (it, i) {
+    var el = null;
+    $$('.card', host).forEach(function (c) { if (c.dataset.key === it.key && !c.classList.contains('flying')) el = c; });
+    if (!el) { el = makeCard(it); host.appendChild(el); }
+    else if (it.sig !== el._it.sig) { var sel = el._sel; el._it = it; fillCard(el); setSel(el, Math.min(sel, it.photos.length - 1)); }
+    keep[it.key] = 1;
+    if (el.style.transform && !el.classList.contains('top')) { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; } // 拖曳時浮上來的下一張
+    el.classList.toggle('top', i === 0);
+    el.classList.toggle('next', i === 1);
+    el.style.zIndex = String(10 - i);
+    if (i === 0) armCard(el);
+  });
+  $$('.card', host).forEach(function (c) { if (!keep[c.dataset.key] && !c.classList.contains('flying')) c.remove(); });
+  items.slice(0, 4).forEach(function (it) { it.photos.forEach(function (p) { preload(p, 1600); preload(p, 240); }); });
+}
+function makeCard(it) {
+  var el = document.createElement('div');
+  el.className = 'card'; el.dataset.key = it.key; el._it = it; el._sel = it.sel || 0;
+  fillCard(el); setSel(el, el._sel);
+  return el;
+}
+function fillCard(el) {
+  var it = el._it, multi = it.photos.length > 1;
+  el.classList.toggle('multi', multi);
+  var elim = it.mode === 'elim';
+  el.innerHTML = '<img class="bg" alt="" draggable="false"><div class="ph"><img class="main" alt="" draggable="false"></div>' +
+    '<div class="stamp s-r">' + (elim ? '留下' : '精修 ♥') + '</div><div class="stamp s-l">' + (elim ? '刪掉' : '不要') + '</div><div class="stamp s-u">其他用途</div>' +
+    (multi ? '<div class="strip">' + it.photos.map(function (p, i) {
+      return '<button class="th" data-i="' + i + '">' + imgTag(p, 240) + '<span class="mk">' + (it.marks ? it.marks(p) : '') + '</span></button>';
+    }).join('') + '</div>' : '') +
+    '<div class="info"><div class="who"></div>' + (it.label ? '<span class="grp">' + esc(it.label) + '</span>' : '') +
+    (it.both ? '<div><button class="bothbtn" data-tap="both">兩人選的都要（' + it.both + ' 張）</button></div>' : '') + '<div class="nm"></div></div>';
+}
+function setSel(el, i) {
+  var it = el._it, p = it.photos[i]; el._sel = i;
+  var m = $('.main', el), bg = $('.bg', el);
+  m.dataset.id = p.id; m.dataset.s = 1600; delete m.dataset.fb; m.src = src(p, 1600);
+  bg.dataset.id = p.id; bg.dataset.s = 240; delete bg.dataset.fb; bg.src = src(p, 240);
+  $$('.th', el).forEach(function (t) { t.classList.toggle('sel', +t.dataset.i === i); });
+  $('.nm', el).textContent = (it.photos.length > 1 ? (i + 1) + '/' + it.photos.length + '・' : '') + (p.fd ? p.fd + ' / ' : '') + p.name;
+  $('.who', el).innerHTML = it.who ? it.who(p) : '';
+}
+function curEl() { return CUR && CUR.host && CUR.host.isConnected && $('.card.top', CUR.host); }
+
+/* 拖曳：右＝精修、左＝不要、上＝其他用途；點一下看大圖、點下面小圖換一張 */
+function armCard(el) {
+  if (el._armed) return; el._armed = true;
+  var st = null;
+  el.addEventListener('pointerdown', function (e) {
+    if (!el.classList.contains('top') || sheetOpen || (e.button && e.button > 0)) return;
+    var rc = el.getBoundingClientRect(), now = performance.now();
+    st = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, dy: 0, moved: false,
+      hist: [{ x: e.clientX, y: e.clientY, t: now }],
+      th: e.target.closest('.th'), tap: e.target.closest('[data-tap]') };
+    el._g = e.clientY - rc.top < rc.height * 0.6 ? 1 : -1; // 抓上半部往外倒、抓下半部往內倒，跟手指比較貼
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    el.style.transition = 'none';
+  });
+  el.addEventListener('pointermove', function (e) {
+    if (!st || e.pointerId !== st.id) return;
+    st.dx = e.clientX - st.x; st.dy = e.clientY - st.y;
+    var now = performance.now();
+    st.hist.push({ x: e.clientX, y: e.clientY, t: now });
+    while (st.hist.length > 2 && now - st.hist[0].t > 100) st.hist.shift(); // 只看最後 0.1 秒算甩的速度
+    if (!st.moved && Math.hypot(st.dx, st.dy) > 8) { st.moved = true; dragging = true; }
+    if (st.moved) dragTo(el, st.dx, st.dy);
+  });
+  function end(e) {
+    if (!st || e.pointerId !== st.id) return;
+    var s = st; st = null; dragging = false;
+    if (!s.moved) {
+      el.style.transition = ''; el.style.transform = '';
+      if (e.type === 'pointerup') {
+        if (s.tap) act(s.tap.dataset.tap);
+        else if (s.th) setSel(el, +s.th.dataset.i);
+        else act('zoom');
+      }
+      if (needRender) render();
+      return;
+    }
+    var a = s.hist[0], b = s.hist[s.hist.length - 1], dt = Math.max(16, b.t - a.t);
+    var vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt, dir = null;
+    var w = el.offsetWidth || innerWidth, h = el.offsetHeight || innerHeight;
+    var up = el._it.mode !== 'elim' && -s.dy > Math.abs(s.dx);
+    if (up) { if (s.dy < -h * UI.upDist || (vy < -UI.flick && s.dy < -40)) dir = 'u'; }
+    else if (s.dx > w * UI.swipeDist || (vx > UI.flick && s.dx > 30)) dir = 'r';
+    else if (s.dx < -w * UI.swipeDist || (vx < -UI.flick && s.dx < -30)) dir = 'l';
+    if (!dir || e.type === 'pointercancel') { snapBack(el); if (needRender) render(); return; }
+    act(dir);
+  }
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+function stampTo(el, c, v) {
+  var s = $('.' + c, el); s.style.opacity = v; s.style.setProperty('--k', 0.75 + 0.25 * v);
+}
+function nextEl(el) { return el.parentNode ? $('.card.next', el.parentNode) : null; }
+function dragTo(el, dx, dy) {
+  var w = el.offsetWidth || innerWidth, h = el.offsetHeight || innerHeight;
+  var rot = Math.max(-1, Math.min(1, dx / w)) * UI.tilt * (el._g || 1);
+  el.style.transform = 'translate(' + dx + 'px,' + dy + 'px) rotate(' + rot + 'deg)';
+  var up = el._it.mode !== 'elim' && -dy > Math.abs(dx);
+  var ph = up ? 0 : Math.min(1, Math.abs(dx) / (w * UI.swipeDist));
+  var pu = up ? Math.min(1, -dy / (h * UI.upDist)) : 0;
+  stampTo(el, 's-r', dx > 0 ? ph : 0); stampTo(el, 's-l', dx < 0 ? ph : 0); stampTo(el, 's-u', pu);
+  var p = Math.max(ph, pu), nx = nextEl(el); // 下一張跟著浮上來
+  if (nx) { nx.style.transition = 'none'; nx.style.transform = 'translateY(' + (10 - 10 * p) + 'px) scale(' + (0.95 + 0.05 * p) + ')'; nx.style.opacity = 0.85 + 0.15 * p; }
+  var hit = p >= 1 ? (up ? 'u' : dx > 0 ? 'r' : 'l') : '';
+  if (hit && hit !== el._hit && UI.vibrate && navigator.vibrate) { try { navigator.vibrate(8); } catch (e) {} }
+  el._hit = hit;
+}
+function resetNext(el) {
+  var nx = nextEl(el);
+  if (nx) { nx.style.transition = ''; nx.style.transform = ''; nx.style.opacity = ''; }
+}
+function snapBack(el) {
+  el._hit = '';
+  el.style.transition = 'transform ' + UI.backMs + 'ms cubic-bezier(.2,1.4,.4,1)'; // 帶一點回彈
+  el.style.transform = '';
+  $$('.stamp', el).forEach(function (s) { s.style.opacity = 0; });
+  resetNext(el);
+}
+function fly(el, dir) {
+  el._hit = '';
+  var m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(el.style.transform || '');
+  var x0 = m ? +m[1] : 0, y0 = m ? +m[2] : 0;
+  var W = innerWidth + el.offsetWidth, rot = UI.tilt * 1.6 * (el._g || 1);
+  var to = dir === 'r' ? [W, y0 + 40, rot] : dir === 'l' ? [-W, y0 + 40, -rot] : [x0, -innerHeight - el.offsetHeight, 0];
+  el.classList.add('flying'); el.classList.remove('top'); el.style.zIndex = '20';
+  $$('.stamp', el).forEach(function (s) { s.style.opacity = 0; });
+  stampTo(el, 's-' + dir, 1);
+  el.style.transition = 'transform ' + UI.flyMs + 'ms cubic-bezier(.25,.6,.45,1), opacity ' + UI.flyMs + 'ms cubic-bezier(.7,0,1,1)';
+  el.style.transform = 'translate(' + to[0] + 'px,' + to[1] + 'px) rotate(' + to[2] + 'deg)';
+  el.style.opacity = '0';
+  setTimeout(function () { el.remove(); }, UI.flyMs + 40);
+}
+function act(a) {
+  if (a === 'undo') return undo();
+  var el = curEl(); if (!el || sheetOpen) return;
+  var it = el._it, p = it.photos[el._sel];
+  if (a === 'zoom') return openViewer(p.id, { list: it.photos.map(function (x) { return x.id; }), onPick: it.photos.length > 1 ? function (id) { setSel(el, it.photos.findIndex(function (x) { return x.id === id; })); } : null });
+  if (a === 'both') { fly(el, 'r'); CUR.decide(it, p, 'both'); return; }
+  if (a === 'u') {
+    if (it.mode === 'elim') return;
+    el.style.transition = 'transform .2s'; dragTo(el, 0, -90);
+    var pre = it.preset ? it.preset(p) : { tags: [], fix: false };
+    openSheet(p, pre, function (res) {
+      if (!res) { snapBack(el); if (needRender) render(); return; }
+      fly(el, 'u'); CUR.decide(it, p, 'u', res);
+    });
+    return;
+  }
+  if (a !== 'l' && a !== 'r') return;
+  fly(el, a); CUR.decide(it, p, a);
+}
+function pushUndo(u) { u.tab = L.tab; UNDO.push(u); if (UNDO.length > 200) UNDO.shift(); }
+function undo() {
+  var u = UNDO[UNDO.length - 1];
+  if (!u || u.tab !== L.tab) return toast('沒有可以復原的');
+  UNDO.pop();
+  (u.ops || []).forEach(function (o) { setKV(o.k, o.prev); });
+  if (u.seen && L.elim) delete L.elim.seen[u.seen];
+  saveAll(); render(); toast('↶ 已復原');
+}
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('[data-act]'); if (b && !b.disabled) act(b.dataset.act);
+});
+document.addEventListener('keydown', function (e) {
+  if (e.target.tagName === 'INPUT' || !$('#modal').hidden || !$('#admin').hidden) return;
+  if (!$('#viewer').hidden) { if (e.key === 'Escape') closeViewer(); if (e.key === 'ArrowLeft') vStep(-1); if (e.key === 'ArrowRight') vStep(1); return; }
+  if (sheetOpen) { if (e.key === 'Escape') $('#shCancel').click(); if (e.key === 'Enter') $('#shOk').click(); return; }
+  var k = { ArrowRight: 'r', ArrowLeft: 'l', ArrowUp: 'u', z: 'undo', Z: 'undo', Backspace: 'undo', ' ': 'zoom' }[e.key];
+  if (k && curEl()) { e.preventDefault(); act(k); }
+});
+
+/* ---------- 📷 滑照片（各自） ---------- */
+function viewSwipe(v, s) {
+  if (!CARDS.length) { v.innerHTML = noPhotosHtml(); return; }
+  var queue = CARDS.filter(function (c) { return !vote(me(), c); });
+  if (!queue.length) {
+    var mc = myFixCount();
+    v.innerHTML = '<div class="pg"><div class="hero"><div class="emo">🎉</div><h2>滑完了！</h2>' +
+      '<p>你選了 <b>' + mc.fix + '</b> 張精修、<b>' + mc.up + '</b> 張其他用途</p></div>' +
+      progressPanel(s) +
+      (s.both ? '<button class="btn pri wide" data-go="together">💞 兩人都滑完了，去一起決定</button>'
+        : '<p class="note" style="text-align:center">等' + WHO[other()] + '滑完，就能到「💞 一起決定」合併。</p>') +
+      '<button class="btn wide" data-go="results">⭐ 看我的選擇（可以改）</button><p class="note" style="text-align:center;margin-top:10px">↶ 想改最後一張，按下面復原或到結果裡點照片改</p>' +
+      '<div class="acts"><button class="ab sm" data-act="undo">↶</button></div></div>';
+    bindGo(v); return;
+  }
+  var dv = deckSkeleton(v, 'mine');
+  var mc2 = myFixCount(), done = s.N - queue.length;
+  $('.dv-head', dv).innerHTML = '<span><b>' + (done + 1) + '</b> / ' + s.N + ' 組</span>' +
+    '<span class="pill">♥ 精修 ' + mc2.fix + '</span><span class="pill gold">↑ 其他 ' + mc2.up + '</span>' +
+    '<span style="margin-left:auto">目標 ' + LIMIT + ' 張</span><div class="bar"><i style="width:' + (done / s.N * 100) + '%"></i></div>';
+  $('[data-act=undo]', dv).disabled = !UNDO.length || UNDO[UNDO.length - 1].tab !== 'swipe';
+  renderDeck(dv, queue.slice(0, 5).map(function (c) {
+    return { key: 'm:' + c.id, sig: '', card: c, photos: c.photos, mode: 'mine',
+      label: c.photos.length > 1 ? '相似 ' + c.photos.length + ' 張・點下面小圖挑最好的一張' : '' };
+  }), function (it, p, dir, res) {
+    var k = vk(me(), it.card.id), prev = KV[k], val, fk = 'f.' + it.card.id;
+    if (dir === 'r') val = { f: [p.id], t: {} };
+    else if (dir === 'l') val = { f: [], t: {} };
+    else { val = { f: res.fix ? [p.id] : [], t: {} }; if (res.tags.length) val.t[p.id] = res.tags; }
+    var ops = [{ k: k, prev: prev }];
+    if (KV[fk]) { ops.push({ k: fk, prev: KV[fk] }); setKV(fk, null); } // 重滑過，之前一起決定的結果作廢
+    pushUndo({ ops: ops });
+    setKV(k, val); render();
+    var c2 = myFixCount();
+    if (dir !== 'l' && c2.fix === LIMIT + 1) toast('已經超過 ' + LIMIT + ' 張囉，沒關係，最後會再一起刪');
+  });
+}
+function noPhotosHtml() {
+  return '<div class="pg"><div class="hero"><div class="emo">🗂️</div><h2>還沒有照片清單</h2>' +
+    '<p>到「⚙ 設定 → 照片分組」掃描雲端資料夾，<br>確認相似照片分組後按「發布」。</p>' +
+    '<button class="btn pri" style="margin-top:12px" onclick="openAdmin()">開始照片分組</button></div></div>';
+}
+function progressPanel(s) {
+  function one(w) { var n = w === 'h' ? s.nh : s.nw; return '<div class="prog' + (n === s.N ? ' done' : '') + '"><div class="lbl"><span>' + (w === 'h' ? '🤵 ' : '👰 ') + WHO[w] + (w === me() ? '（我）' : '') + '</span><span>' + (n === s.N ? '✓ 滑完' : n + ' / ' + s.N) + '</span></div><div class="bar"><i style="width:' + (s.N ? n / s.N * 100 : 0) + '%"></i></div></div>'; }
+  return '<div class="panel">' + one('h') + one('w') + '</div>';
+}
+function bindGo(v) { $$('[data-go]', v).forEach(function (b) { b.onclick = function () { L.tab = b.dataset.go; saveAll(); render(); }; }); }
+
+/* ---------- 💞 一起決定：意見不同 → 超過 60 張淘汰 ---------- */
+function viewTogether(v, s) {
+  if (!CARDS.length) { v.innerHTML = noPhotosHtml(); return; }
+  if (!s.both) {
+    // 先看看兩人都滑過的部分，意見一致的比例
+    var both = 0, diff = 0;
+    CARDS.forEach(function (c) { var a = vote('h', c), b = vote('w', c); if (a && b) { both++; if (!sameSet(a.f, b.f)) diff++; } });
+    v.innerHTML = '<div class="pg"><div class="hero"><div class="emo">⏳</div><h2>等兩個人都滑完</h2><p>滑完後，意見不同的照片會在這裡一起決定。</p></div>' +
+      progressPanel(s) + (both ? '<p class="note" style="text-align:center">目前兩人都滑過的 ' + both + ' 組裡，有 ' + diff + ' 組意見不同。</p>' : '') +
+      (s[me() === 'h' ? 'nh' : 'nw'] < s.N ? '<button class="btn pri wide" data-go="swipe">📷 繼續滑</button>' : '') + '</div>';
+    bindGo(v); return;
+  }
+  if (s.conflicts.length) return conflictDeck(v, s);
+  var E = L.elim;
+  if (E && E.active) {
+    var q = elimQueue();
+    if (q.length) return elimDeck(v, s, q);
+    if (s.fix > LIMIT) {
+      v.innerHTML = '<div class="pg"><div class="hero"><div class="emo">🔁</div><h2>第 ' + E.round + ' 輪結束</h2>' +
+        '<p>精修還有 <b>' + s.fix + '</b> 張，要再刪 <b>' + (s.fix - LIMIT) + '</b> 張。</p></div>' +
+        '<button class="btn pri wide" id="nextRound">開始第 ' + (E.round + 1) + ' 輪</button>' +
+        '<button class="btn wide" data-go="results">或到「結果」直接點照片取消精修</button>' +
+        '<div class="acts"><button class="ab sm" data-act="undo">↶</button></div></div>';
+      $('#nextRound').onclick = function () { L.elim = { active: true, round: E.round + 1, seen: {}, hit: false }; UNDO = []; saveAll(); render(); };
+      bindGo(v); return;
+    }
+    E.active = false; saveAll();
+  }
+  if (s.fix > LIMIT) {
+    v.innerHTML = '<div class="pg"><div class="hero"><div class="emo">✂️</div><h2>精修 ' + s.fix + ' 張，超過 ' + LIMIT + ' 張</h2>' +
+      '<p>再一起看一輪精修照片：<br>右滑留下、左滑刪掉，刪到剩 ' + LIMIT + ' 張。<br>要刪 <b>' + (s.fix - LIMIT) + '</b> 張。</p></div>' +
+      '<button class="btn pri wide" id="startElim">開始淘汰（建議兩人一起看同一支手機）</button>' +
+      '<button class="btn wide" data-go="results">先看看精修清單</button></div>';
+    $('#startElim').onclick = function () { L.elim = { active: true, round: 1, seen: {}, hit: false }; UNDO = []; saveAll(); render(); };
+    bindGo(v); return;
+  }
+  v.innerHTML = '<div class="pg"><div class="hero"><div class="emo">💐</div><h2>挑好了！</h2>' +
+    '<p>精修 <b>' + s.fix + '</b> / ' + LIMIT + ' 張' + (s.fix < LIMIT ? '，還可以再加 ' + (LIMIT - s.fix) + ' 張' : '') + '</p></div>' +
+    (s.fix < LIMIT ? '<p class="note" style="text-align:center">想加照片：到「⭐ 結果 → 全部」點照片，按「♥ 精修」。</p>' : '') +
+    '<button class="btn pri wide" data-go="results">⭐ 看結果、複製清單給攝影師</button>' +
+    '<div class="acts"><button class="ab sm" data-act="undo">↶</button></div></div>';
+  bindGo(v);
+}
+function whoMarks(c) {
+  var a = vote('h', c) || { f: [] }, b = vote('w', c) || { f: [] };
+  return {
+    marks: function (p) { return (a.f.indexOf(p.id) >= 0 ? '<i>老公♥</i>' : '') + (b.f.indexOf(p.id) >= 0 ? '<i>老婆♥</i>' : ''); },
+    who: function (p) {
+      function one(w, v) { var y = v.f.indexOf(p.id) >= 0; return '<span class="' + (y ? 'y' : '') + '">' + WHO[w] + (y ? ' ♥ 精修這張' : v.f.length ? ' 選別張' : ' ✕ 不要') + '</span>'; }
+      return one('h', a) + one('w', b);
+    },
+    union: uniq((a.f || []).concat(b.f || [])),
+    tags: mergeT(a.t, b.t),
+  };
+}
+function conflictDeck(v, s) {
+  var dv = deckSkeleton(v, 'together');
+  $('.dv-head', dv).innerHTML = '<span>意見不同，<b>還剩 ' + s.conflicts.length + ' 組</b></span><span style="margin-left:auto">兩人一起看、一起滑</span>';
+  $('[data-act=undo]', dv).disabled = !UNDO.length || UNDO[UNDO.length - 1].tab !== 'together';
+  renderDeck(dv, s.conflicts.slice(0, 5).map(function (c) {
+    var w = whoMarks(c);
+    var first = c.photos.findIndex(function (p) { return w.union.indexOf(p.id) >= 0; });
+    return { key: 't:' + c.id, sig: JSON.stringify([vote('h', c), vote('w', c)]), card: c, photos: c.photos, mode: 'together', sel: Math.max(0, first),
+      marks: w.marks, who: w.who, both: w.union.length > 1 ? w.union.length : 0,
+      label: c.photos.length > 1 ? '相似 ' + c.photos.length + ' 張・選要精修的那張' : '',
+      preset: function (p) { return { tags: w.tags[p.id] || [], fix: false }; } };
+  }), function (it, p, dir, res) {
+    var w = whoMarks(it.card), k = 'f.' + it.card.id, prev = KV[k], val = { f: [], t: clone(w.tags) };
+    if (dir === 'r') val.f = [p.id];
+    else if (dir === 'both') val.f = w.union;
+    else if (dir === 'u') { val.f = res.fix ? [p.id] : []; if (res.tags.length) val.t[p.id] = res.tags; else delete val.t[p.id]; }
+    pushUndo({ ops: [{ k: k, prev: prev }] });
+    setKV(k, val); render();
+  });
+}
+function elimQueue() {
+  var seen = (L.elim && L.elim.seen) || {}, out = [];
+  CARDS.forEach(function (c) {
+    var f = finalOf(c); if (!f) return;
+    (f.f || []).forEach(function (pid) { if (!seen[pid] && PH[pid]) out.push({ pid: pid, c: c }); });
+  });
+  var seenPid = {};
+  out = out.filter(function (x) { if (seenPid[x.pid]) return false; seenPid[x.pid] = 1; return true; });
+  out.sort(function (a, b) { return ORDER[a.pid] - ORDER[b.pid]; });
+  return out;
+}
+function elimDeck(v, s, q) {
+  var dv = deckSkeleton(v, 'elim');
+  var over = s.fix - LIMIT;
+  $('.dv-head', dv).innerHTML = '<div class="big-count">第 ' + L.elim.round + ' 輪淘汰・精修 <b>' + s.fix + '</b> 張・' +
+    (over > 0 ? '還要刪 <b>' + over + '</b> 張' : '<b style="color:var(--ok)">已在 ' + LIMIT + ' 張內</b>') + '</div>' +
+    '<span>這輪還剩 ' + q.length + ' 張沒看</span><span style="margin-left:auto">→ 留下　← 刪掉</span>';
+  $('[data-act=undo]', dv).disabled = !UNDO.length || UNDO[UNDO.length - 1].tab !== 'together';
+  renderDeck(dv, q.slice(0, 5).map(function (x) {
+    var f = finalOf(x.c), tags = (f && f.t && f.t[x.pid]) || [];
+    return { key: 'e:' + x.pid, sig: '', card: x.c, photos: [PH[x.pid]], mode: 'elim', label: tags.length ? '也要做：' + tags.join('、') : '' };
+  }), function (it, p, dir) {
+    var u = { seen: p.id, ops: [] };
+    if (dir === 'l') {
+      var base = finalOf(it.card);
+      if (!base) { render(); return; }
+      var k = 'f.' + it.card.id, cur = clone(base);
+      u.ops.push({ k: k, prev: KV[k] });
+      cur.f = cur.f.filter(function (x) { return x !== p.id; });
+      setKV(k, cur);
+    }
+    L.elim.seen[p.id] = 1;
+    pushUndo(u); saveAll();
+    var s2 = stats();
+    if (s2.fix <= LIMIT && !L.elim.hit) {
+      L.elim.hit = true; saveAll();
+      modal('剩 ' + s2.fix + ' 張了 🎉', '精修已經在 ' + LIMIT + ' 張以內。\n要直接完成，還是把這輪看完？', [
+        { label: '完成，看結果', pri: true, fn: function () { L.elim.active = false; saveAll(); L.tab = 'results'; L.rtab = 'fix'; render(); } },
+        { label: '把這輪看完', fn: function () { render(); } }]);
+    }
+    render();
+  });
+}
+
+/* ---------- ⭐ 結果 ---------- */
+function resMode() { return stats().both ? 'final' : 'mine'; }
+function stateOf(c, mode) {
+  if (mode === 'mine') return vote(me(), c);
+  var f = finalOf(c); if (f) return f;
+  if (isConflict(c)) return { f: [], t: mergeT((vote('h', c) || {}).t, (vote('w', c) || {}).t), conflict: true };
+  return null;
+}
+function resultSets(mode) {
+  var sets = { fix: [], all: [] }, tags = allTags();
+  tags.forEach(function (t) { sets['t:' + t] = []; });
+  CARDS.forEach(function (c) {
+    var st = stateOf(c, mode);
+    c.photos.forEach(function (p) {
+      sets.all.push(p.id);
+      if (!st) return;
+      if ((st.f || []).indexOf(p.id) >= 0) sets.fix.push(p.id);
+      ((st.t || {})[p.id] || []).forEach(function (t) { (sets['t:' + t] = sets['t:' + t] || []).push(p.id); });
+    });
+  });
+  return sets;
+}
+function marksOf(pid, mode) {
+  var st = stateOf(CARD_OF[pid], mode); if (!st) return '';
+  return ((st.f || []).indexOf(pid) >= 0 ? '<i class="h">♥</i>' : '') + ((st.t || {})[pid] || []).map(function (t) { return '<i>' + esc(t) + '</i>'; }).join('');
+}
+function viewResults(v, s) {
+  if (!CARDS.length) { v.innerHTML = noPhotosHtml(); return; }
+  var mode = resMode(), sets = resultSets(mode), tabs = [['fix', '♥ 精修 ' + sets.fix.length + '/' + LIMIT]];
+  allTags().forEach(function (t) { tabs.push(['t:' + t, t + ' ' + (sets['t:' + t] || []).length]); });
+  tabs.push(['all', '全部 ' + sets.all.length]);
+  if (!sets[L.rtab]) L.rtab = 'fix';
+  var list = sets[L.rtab];
+  var head = mode === 'mine'
+    ? '<div class="warnbox">這是<b>你自己</b>的選擇（' + WHO[other()] + '還在滑 ' + s[other() === 'h' ? 'nh' : 'nw'] + '/' + s.N + '）。兩人都滑完後，這裡會變成合併結果。</div>'
+    : (s.conflicts.length ? '<div class="warnbox">還有 ' + s.conflicts.length + ' 組意見不同沒決定，先到「💞 一起決定」。</div>' : '');
+  v.innerHTML = '<div class="pg">' + head +
+    '<div class="rtabs">' + tabs.map(function (t) { return '<button data-rt="' + esc(t[0]) + '" class="' + (t[0] === L.rtab ? 'on' : '') + (t[0] === 'fix' && sets.fix.length > LIMIT ? ' over' : '') + '">' + esc(t[1]) + '</button>'; }).join('') + '</div>' +
+    (list.length ? '<div class="grid">' + list.map(function (pid) {
+      var mk = marksOf(pid, mode);
+      return '<button class="gi' + (L.rtab === 'all' && !mk ? ' dim' : '') + '" data-pid="' + esc(pid) + '">' + imgTag(PH[pid], 400, 'lz') + '<span class="mk">' + mk + '</span></button>';
+    }).join('') + '</div>' : '<div class="empty">還沒有照片</div>') +
+    '<div class="row" style="margin-top:16px"><button class="btn pri" id="cpy">📋 複製清單</button><button class="btn" id="csv">⬇ 下載 CSV</button></div>' +
+    '<p class="note">點照片可以看大圖、改精修或用途。清單用檔名列出，直接貼給攝影師。</p></div>';
+  $$('[data-rt]', v).forEach(function (b) { b.onclick = function () { L.rtab = b.dataset.rt; saveAll(); render(); }; });
+  $$('.gi', v).forEach(function (b) { b.onclick = function () { openViewer(b.dataset.pid, { list: list.slice(), edit: true }); }; });
+  $('#cpy').onclick = function () { copyText(exportText(mode)); };
+  $('#csv').onclick = function () { downloadCsv(mode); };
+}
+function editPhoto(pid, what) { // what: 'fix' 或用途名稱
+  var c = CARD_OF[pid], mode = resMode();
+  if (mode === 'final' && isConflict(c)) return toast('這組兩人意見不同，先到「💞 一起決定」');
+  if (mode === 'mine' && !vote(me(), c)) return toast('這組還沒滑到，先到「📷 滑照片」');
+  var k = mode === 'mine' ? vk(me(), c.id) : 'f.' + c.id;
+  var cur = clone(stateOf(c, mode) || { f: [], t: {} }); delete cur.conflict;
+  cur.f = cur.f || []; cur.t = cur.t || {};
+  if (what === 'fix') {
+    var i = cur.f.indexOf(pid); if (i >= 0) cur.f.splice(i, 1); else cur.f.push(pid);
+  } else {
+    var tg = cur.t[pid] || [], j = tg.indexOf(what);
+    if (j >= 0) tg.splice(j, 1); else tg.push(what);
+    if (tg.length) cur.t[pid] = tg; else delete cur.t[pid];
+  }
+  setKV(k, cur); render();
+}
+function nameOf(p) { return (p.fd ? p.fd + '/' : '') + p.name; }
+function exportText(mode) {
+  var sets = resultSets(mode), d = new Date();
+  var out = ['婚紗照挑選結果（' + d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate() + (mode === 'mine' ? '・' + WHO[me()] + '個人' : '') + '）', ''];
+  out.push('【精修 ' + sets.fix.length + ' 張】'); sets.fix.forEach(function (id) { out.push(nameOf(PH[id])); }); out.push('');
+  allTags().forEach(function (t) {
+    var l = sets['t:' + t] || []; if (!l.length) return;
+    out.push('【' + t + ' ' + l.length + ' 張】'); l.forEach(function (id) { out.push(nameOf(PH[id])); }); out.push('');
+  });
+  return out.join('\n');
+}
+function copyText(t) {
+  function fallback() { var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('已複製'); } catch (e) { toast('複製失敗'); } ta.remove(); }
+  if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { toast('已複製，可以貼到 LINE 給攝影師'); }, fallback); else fallback();
+}
+function downloadCsv(mode) {
+  var tags = allTags(), rows = [['檔名', '資料夾', '精修'].concat(tags)];
+  CARDS.forEach(function (c) {
+    var st = stateOf(c, mode); if (!st) return;
+    c.photos.forEach(function (p) {
+      var fx = (st.f || []).indexOf(p.id) >= 0, tg = (st.t || {})[p.id] || [];
+      if (!fx && !tg.length) return;
+      rows.push([p.name, p.fd || '', fx ? 'V' : ''].concat(tags.map(function (t) { return tg.indexOf(t) >= 0 ? 'V' : ''; })));
+    });
+  });
+  var csv = '﻿' + rows.map(function (r) { return r.map(function (x) { return '"' + String(x).replace(/"/g, '""') + '"'; }).join(','); }).join('\r\n');
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = '婚紗照挑選結果.csv'; a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+}
+
+/* ---------- ⚙ 設定 ---------- */
+function viewSettings(v, s) {
+  var groups = CARDS.filter(function (c) { return c.photos.length > 1; }).length;
+  v.innerHTML = '<div class="pg">' +
+    '<div class="panel"><h2>我是</h2><div class="seg"><button data-who="h" class="' + (me() === 'h' ? 'on' : '') + '">🤵 老公</button><button data-who="w" class="' + (me() === 'w' ? 'on' : '') + '">👰 老婆</button></div></div>' +
+    (CARDS.length ? progressPanel(s) : '') +
+    (DEMO ? '<div class="panel"><h2>示範模式</h2><p>照片是假的，資料只存在這台瀏覽器。示範的精修上限是 10 張（正式版 60 張），方便試淘汰流程。</p>' +
+      '<button class="btn wide" id="simOther">🎲 模擬' + WHO[other()] + '全部滑完</button><button class="btn wide" id="demoReset">清除示範資料重來</button></div>'
+      : '<div class="panel"><h2>同步</h2><p>狀態：' + esc($('#syncTag').textContent) + '</p>' +
+      '<button class="btn wide" id="cpLink">🔗 複製連結給' + WHO[other()] + '</button><button class="btn wide" id="syncNow">🔄 立即同步</button></div>') +
+    '<div class="panel"><h2>照片</h2><p>' + (CARDS.length ? (s.N ? Object.keys(PH).length + ' 張照片，分成 ' + s.N + ' 組（' + groups + ' 組是相似照片）' : '') : '還沒有照片清單') + '</p>' +
+    '<button class="btn wide" onclick="openAdmin()">🗂️ 照片分組（掃描雲端資料夾）</button></div>' +
+    '<div class="panel"><h2>操作說明</h2><p>→ 右滑：精修　← 左滑：不要　↑ 上滑：其他用途（小卡、相本、禮物…，也可以同時精修）</p>' +
+    '<p>相似照片（同一個動作的全身、半身、橫拍）會放在同一張卡，點下面小圖挑一張。點照片看大圖、點兩下放大看細節。</p>' +
+    '<p>電腦：← → ↑ 鍵滑、Z 復原、空白鍵看大圖。</p></div>' +
+    '<div class="panel"><h2>疑難排解</h2><button class="btn wide" id="reload">清掉這台的暫存、重新下載</button></div></div>';
+  $$('[data-who]', v).forEach(function (b) { b.onclick = function () { Y.who = b.dataset.who; UNDO = []; saveAll(); fixUrl(); render(); }; });
+  if ($('#cpLink')) $('#cpLink').onclick = function () { copyText(location.origin + location.pathname + '?key=' + encodeURIComponent(Y.key)); };
+  if ($('#syncNow')) $('#syncNow').onclick = function () { push(); pull(); loadManifest(); toast('同步中…'); };
+  if ($('#simOther')) $('#simOther').onclick = simulateOther;
+  if ($('#demoReset')) $('#demoReset').onclick = function () { ['kv', 'pend', 'man', 'local'].forEach(function (k) { localStorage.removeItem(NS + k); }); location.reload(); };
+  $('#reload').onclick = function () {
+    modal('重新下載？', '這台的暫存會清掉、從雲端重新下載。\n還沒上傳的變更會先傳上去。', [
+      { label: '重新下載', pri: true, fn: function () {
+        var n = Object.keys(PEND).length;
+        if (n) { push(); return toast('還有 ' + n + ' 筆沒上傳，連上網路等一下再試'); }
+        KV = {}; Y.rev = 0; MAN = null; store('man', null); saveAll(); location.reload();
+      } },
+      { label: '取消' }]);
+  };
+}
+function simulateOther() {
+  var o = other(), n = 0;
+  CARDS.forEach(function (c) {
+    if (vote(o, c)) return;
+    var mine = vote(me(), c), val;
+    if (mine && Math.random() < 0.7) val = clone(mine);
+    else {
+      var p = c.photos[Math.floor(Math.random() * c.photos.length)], r = Math.random();
+      val = { f: r < 0.5 ? [p.id] : [], t: {} };
+      if (r > 0.85) val.t[p.id] = [allTags()[Math.floor(Math.random() * 3)]];
+    }
+    KV[vk(o, c.id)] = val; n++;
+  });
+  saveAll(); toast('已模擬 ' + n + ' 組'); render();
+}
+
+/* ---------- 用途面板（上滑） ---------- */
+var sheetCb = null, sheetSel = [];
+function openSheet(p, pre, cb) {
+  sheetOpen = true; sheetCb = cb; sheetSel = (pre.tags || []).slice();
+  $('#shSub').textContent = (p.fd ? p.fd + ' / ' : '') + p.name;
+  $('#shFix').checked = !!pre.fix;
+  drawChips(); $('#sheet').hidden = false;
+}
+function drawChips() {
+  $('#shChips').innerHTML = allTags().map(function (t) { return '<button class="chip' + (sheetSel.indexOf(t) >= 0 ? ' on' : '') + '" data-t="' + esc(t) + '">' + esc(t) + '</button>'; }).join('') +
+    '<button class="chip add" data-add="1">＋ 自訂</button>';
+  $$('#shChips .chip').forEach(function (b) {
+    b.onclick = function () {
+      if (b.dataset.add) {
+        var t = (prompt('新增用途（例如：謝卡、婚禮布置、爸媽）') || '').trim().slice(0, 12);
+        if (!t) return;
+        if (allTags().indexOf(t) < 0) setKV('cfg.tags', (KV['cfg.tags'] || []).concat([t]));
+        if (sheetSel.indexOf(t) < 0) sheetSel.push(t);
+      } else {
+        var i = sheetSel.indexOf(b.dataset.t); if (i >= 0) sheetSel.splice(i, 1); else sheetSel.push(b.dataset.t);
+      }
+      drawChips();
+    };
+  });
+}
+function closeSheet(res) {
+  $('#sheet').hidden = true; sheetOpen = false;
+  var cb = sheetCb; sheetCb = null; if (cb) cb(res);
+  if (needRender) render();
+}
+$('#shCancel').onclick = function () { closeSheet(null); };
+$('#sheet').addEventListener('click', function (e) { if (e.target.id === 'sheet') closeSheet(null); });
+$('#shOk').onclick = function () {
+  var fix = $('#shFix').checked;
+  if (!sheetSel.length && !fix) return toast('選一個用途');
+  closeSheet({ tags: sheetSel.slice(), fix: fix });
+};
+
+/* ---------- 看大圖 ---------- */
+var VW = null;
+function openViewer(pid, opt) {
+  VW = Object.assign({ list: [pid], edit: false }, opt || {}, { pid: pid });
+  $('#viewer').hidden = false; drawViewer();
+}
+function drawViewer() {
+  var p = PH[VW.pid] || { id: VW.pid, name: '' }, i = VW.list.indexOf(VW.pid);
+  var img = $('#vImg'); img.dataset.id = p.id; img.dataset.s = 2400; delete img.dataset.fb; img.src = src(p, 2400);
+  $('#vScroll').classList.remove('zoom');
+  $('#vName').textContent = (VW.list.length > 1 ? (i + 1) + '/' + VW.list.length + '・' : '') + nameOf(p);
+  $('#vPrev').style.visibility = i > 0 ? '' : 'hidden';
+  $('#vNext').style.visibility = i < VW.list.length - 1 ? '' : 'hidden';
+  var bar = $('#vBar');
+  if (VW.edit) {
+    var mode = resMode(), st = stateOf(CARD_OF[p.id], mode) || { f: [], t: {} }, tg = (st.t || {})[p.id] || [];
+    bar.innerHTML = '<button class="chip fx' + ((st.f || []).indexOf(p.id) >= 0 ? ' on' : '') + '" data-e="fix">♥ 精修</button>' +
+      allTags().map(function (t) { return '<button class="chip' + (tg.indexOf(t) >= 0 ? ' on' : '') + '" data-e="' + esc(t) + '">' + esc(t) + '</button>'; }).join('');
+    $$('[data-e]', bar).forEach(function (b) { b.onclick = function () { editPhoto(p.id, b.dataset.e); drawViewer(); }; });
+  } else if (VW.onPick && VW.list.length > 1) {
+    bar.innerHTML = '<button class="chip fx on" id="vPick">選這張</button>';
+    $('#vPick').onclick = function () { VW.onPick(p.id); closeViewer(); };
+  } else bar.innerHTML = '';
+  if (VW.list[i + 1] && PH[VW.list[i + 1]]) preload(PH[VW.list[i + 1]], 2400);
+}
+function vStep(d) { var i = VW.list.indexOf(VW.pid) + d; if (i < 0 || i >= VW.list.length) return; VW.pid = VW.list[i]; drawViewer(); }
+function closeViewer() { $('#viewer').hidden = true; VW = null; }
+$('#vClose').onclick = closeViewer;
+$('#vPrev').onclick = function () { vStep(-1); };
+$('#vNext').onclick = function () { vStep(1); };
+(function () { // 點兩下放大，放大後用手指拖著看
+  var last = 0, sc = $('#vScroll');
+  sc.addEventListener('click', function (e) {
+    var now = Date.now();
+    if (now - last < 320) {
+      var r = sc.getBoundingClientRect(), img = $('#vImg'), ir = img.getBoundingClientRect();
+      var fx = (e.clientX - ir.left) / ir.width, fy = (e.clientY - ir.top) / ir.height;
+      sc.classList.toggle('zoom');
+      if (sc.classList.contains('zoom')) {
+        var nr = img.getBoundingClientRect();
+        sc.scrollLeft = fx * nr.width - r.width / 2;
+        sc.scrollTop = fy * nr.height - r.height / 2;
+      }
+      last = 0;
+    } else last = now;
+  });
+})();
+
+/* ---------- 🗂️ 照片分組（掃描雲端 → 自動分組 → 手動調整 → 發布） ---------- */
+var AD = { photos: null, ovr: {}, T: 30, S: 0.6, loading: false };
+function openAdmin() { $('#admin').hidden = false; drawAdmin(); }
+$('#admBack').onclick = function () { $('#admin').hidden = true; };
+function drawAdmin() {
+  var body = $('#admBody'), foot = $('#admFoot');
+  if (!AD.photos) {
+    foot.hidden = true;
+    body.innerHTML = '<div class="panel"><h2>1. 掃描雲端資料夾</h2>' +
+      '<p>讀出資料夾（含子資料夾）裡所有照片的檔名、拍攝時間和小縮圖，自動把「同一個動作」的照片分成一組（拍攝時間接近、顏色相近）。</p>' +
+      '<p>幾百張大約要 30 秒到 1 分鐘。建議用電腦做這一步。</p>' +
+      (CARDS.length ? '<div class="warnbox">已經發布過照片清單了。重新發布後，每組第一張沒變的，原本的選擇會保留；其他組要重滑。</div>' : '') +
+      '<button class="btn pri wide" id="scanBtn"' + (AD.loading ? ' disabled' : '') + '>' + (AD.loading ? '<span class="spin"></span> 掃描中…' : '開始掃描') + '</button></div>';
+    $('#scanBtn').onclick = scanFolder;
+    return;
+  }
+  var P = AD.photos, groups = adminGroups();
+  var multi = groups.filter(function (g) { return g.length > 1; }).length;
+  var html = '<div class="panel"><h2>2. 檢查分組</h2>' +
+    '<p>' + P.length + ' 張 → <b>' + groups.length + '</b> 組（相似組 ' + multi + ' 組）</p>' +
+    '<div class="sl"><span>拍攝間隔 ≤</span><input type="range" id="slT" min="3" max="180" step="1" value="' + AD.T + '"><b>' + AD.T + ' 秒</b></div>' +
+    '<div class="sl"><span>顏色相似 ≥</span><input type="range" id="slS" min="0.3" max="0.95" step="0.01" value="' + AD.S + '"><b>' + Math.round(AD.S * 100) + '%</b></div>' +
+    '<p>👉 <b>點一張照片</b>：跟前一張「合併成同組／拆開」。被手動改過的有金框。小字是跟前一張差幾秒。</p>' +
+    (AD.noTime ? '<div class="warnbox">大部分照片沒有拍攝時間，只能用顏色判斷，請多檢查。</div>' : '') +
+    (AD.noThumb ? '<div class="warnbox">有 ' + AD.noThumb + ' 張拿不到縮圖（雲端硬碟可能還在產生），這些只用拍攝時間判斷。</div>' : '') + '</div>';
+  var lastFd = null;
+  groups.forEach(function (g) {
+    var fd = P[g[0]].fd || '';
+    if (fd !== lastFd) { html += '<div class="fdh">📁 ' + esc(fd || '（根目錄）') + '</div>'; lastFd = fd; }
+    html += '<div class="ag' + (g.length > 1 ? ' multi' : '') + '">' + (g.length > 1 ? '<span class="n">' + g.length + ' 張</span>' : '') +
+      g.map(function (i) {
+        var p = P[i], prev = P[i - 1], dt = prev && p.t && prev.t ? Math.round((p.t - prev.t) / 1000) : null;
+        return '<button class="at' + (p.id in AD.ovr ? ' ovr' : '') + '" data-i="' + i + '"><img src="' + (p.blob || '') + '" alt="" loading="lazy"><small>' + (dt == null ? '' : (dt > 999 ? '+' + Math.round(dt / 60) + 'm' : '+' + dt + 's')) + '</small></button>';
+      }).join('') + '</div>';
+  });
+  body.innerHTML = html;
+  foot.hidden = false;
+  foot.innerHTML = '<button class="btn pri wide" id="pubBtn" style="margin:0">3. 發布給兩人（' + P.length + ' 張 / ' + groups.length + ' 組）</button>';
+  $('#slT').oninput = function () { AD.T = +this.value; redrawAdminSoon(); };
+  $('#slS').oninput = function () { AD.S = +this.value; redrawAdminSoon(); };
+  $$('.at', body).forEach(function (b) {
+    b.onclick = function () {
+      var i = +b.dataset.i; if (i === 0) return toast('第一張前面沒有照片');
+      var p = P[i], want = !linked(i);
+      if (want === autoLinked(i)) delete AD.ovr[p.id]; else AD.ovr[p.id] = want;
+      var sc = body.scrollTop; drawAdmin(); body.scrollTop = sc;
+    };
+  });
+  $('#pubBtn').onclick = publishManifest;
+}
+var adT;
+function redrawAdminSoon() { clearTimeout(adT); adT = setTimeout(function () { var b = $('#admBody'), sc = b.scrollTop; drawAdmin(); b.scrollTop = sc; }, 120); }
+function hsim(a, b) { var s = 0; for (var i = 0; i < a.length; i++) s += Math.min(a[i], b[i]); return s; }
+function linked(i) {
+  var b = AD.photos[i];
+  if (b && b.id in AD.ovr) return AD.ovr[b.id];
+  return autoLinked(i);
+}
+function autoLinked(i) {
+  var P = AD.photos, a = P[i - 1], b = P[i];
+  if (!a) return false;
+  if ((a.fd || '') !== (b.fd || '')) return false;
+  var sim = a.hist && b.hist ? hsim(a.hist, b.hist) : null;
+  if (a.t && b.t) { if (Math.abs(b.t - a.t) / 1000 > AD.T) return false; return sim == null || sim >= AD.S; }
+  return sim != null && sim >= Math.min(0.95, AD.S + 0.1);
+}
+function adminGroups() {
+  var out = [];
+  AD.photos.forEach(function (p, i) { if (i > 0 && linked(i)) out[out.length - 1].push(i); else out.push([i]); });
+  return out;
+}
+function scanFolder() {
+  AD.loading = true; drawAdmin();
+  var got = DEMO
+    ? new Promise(function (res) { setTimeout(function () { res({ ok: true, photos: demoPhotos().map(function (p) { return Object.assign({}, p, { th: demoImg(p) }); }) }); }, 600); })
+    : fetch(SYNC_URL + '?key=' + encodeURIComponent(Y.key) + '&scan=1').then(function (r) { return r.text(); }).then(function (t) {
+      try { return JSON.parse(t); } catch (e) { throw new Error('Apps Script 沒有回傳資料（可能逾時，或部署的不是最新版本／權限不是「所有人」）'); }
+    });
+  got.then(function (d) {
+    if (!d.ok) throw new Error(d.error || '掃描失敗');
+    if (!d.photos.length) throw new Error('資料夾裡沒有照片（或 PHOTO_FOLDER 填錯）');
+    return prepScan(d.photos);
+  }).then(function () {
+    AD.loading = false; drawAdmin();
+  }).catch(function (e) {
+    AD.loading = false; drawAdmin();
+    modal('掃描失敗', String(e.message || e) + '\n\n請確認 Code.gs 的 PHOTO_FOLDER、以及部署的是最新版本。', [{ label: '好', pri: true }]);
+  });
+}
+function prepScan(list) {
+  var withT = list.filter(function (p) { return p.t; }).length;
+  AD.noTime = withT < list.length * 0.8;
+  list.sort(function (a, b) {
+    if ((a.fd || '') !== (b.fd || '')) return (a.fd || '').localeCompare(b.fd || '', 'zh-Hant', { numeric: true });
+    if (!AD.noTime && a.t && b.t && a.t !== b.t) return a.t - b.t;
+    return a.name.localeCompare(b.name, undefined, { numeric: true });
+  });
+  AD.photos = list; AD.ovr = {};
+  AD.noThumb = list.filter(function (p) { return !p.th; }).length;
+  // 縮圖 → 64 格顏色分布（RGB 各 4 階），用來比相似度
+  var cv = document.createElement('canvas'); cv.width = cv.height = 24;
+  var ctx = cv.getContext('2d', { willReadFrequently: true });
+  return list.reduce(function (pr, p) {
+    return pr.then(function () {
+      if (!p.th) return;
+      return fetch(p.th).then(function (r) { return r.blob(); }).then(function (b) {
+        p.blob = URL.createObjectURL(b);
+        return new Promise(function (res) {
+          var im = new Image();
+          im.onload = function () {
+            try {
+              ctx.clearRect(0, 0, 24, 24); ctx.drawImage(im, 0, 0, 24, 24);
+              var d = ctx.getImageData(0, 0, 24, 24).data, h = new Array(64).fill(0);
+              for (var i = 0; i < d.length; i += 4) h[(d[i] >> 6) * 16 + (d[i + 1] >> 6) * 4 + (d[i + 2] >> 6)]++;
+              p.hist = h.map(function (x) { return x / 576; });
+            } catch (e) {}
+            res();
+          };
+          im.onerror = function () { res(); };
+          im.src = p.blob;
+        });
+      }).catch(function () {});
+    });
+  }, Promise.resolve());
+}
+function publishManifest() {
+  var P = AD.photos, groups = adminGroups(), list = [];
+  groups.forEach(function (g, gi) { g.forEach(function (i) { var p = P[i]; list.push({ id: p.id, name: p.name, t: p.t || 0, g: gi + 1, fd: p.fd || '' }); }); });
+  modal('發布照片清單？', P.length + ' 張照片、' + groups.length + ' 組。\n發布後兩個人的手機都會用這份清單。', [
+    { label: '發布', pri: true, fn: function () {
+      if (DEMO) {
+        var old = {}; ((MAN && MAN.photos) || []).forEach(function (p) { old[p.id] = p; });
+        MAN = { mrev: ((MAN && MAN.mrev) || 0) + 1, photos: list.map(function (p) { return Object.assign({}, demoPhotos().find(function (x) { return x.id === p.id; }), p); }) };
+        store('man', MAN); buildCards(); afterPublish(); return;
+      }
+      $('#pubBtn').disabled = true; $('#pubBtn').innerHTML = '<span class="spin"></span> 發布中…';
+      fetch(SYNC_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: Y.key, manifest: list }) })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d.ok) throw new Error(d.error);
+          MAN = { mrev: d.mrev, photos: list }; store('man', MAN); buildCards(); afterPublish();
+        })
+        .catch(function (e) { $('#pubBtn').disabled = false; $('#pubBtn').textContent = '再試一次'; modal('發布失敗', String(e.message || e), [{ label: '好', pri: true }]); });
+    } },
+    { label: '取消' }]);
+}
+function afterPublish() {
+  $('#admin').hidden = true; L.tab = 'swipe'; saveAll(); render();
+  toast('已發布 ' + Object.keys(PH).length + ' 張照片');
+}
+
+/* ---------------- 開始 ---------------- */
+fixUrl();
+render();
+if (syncOn()) { pull(); if (!MAN) loadManifest(); if (Object.keys(PEND).length) schedulePush(); }
+</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+.omc/
+__pycache__/
+# 婚紗照不進公開 repo（照片放 Google 雲端）
+照片/
